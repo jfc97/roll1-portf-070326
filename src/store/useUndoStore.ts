@@ -39,8 +39,8 @@ export async function logAndPush(
   type: TransactionType,
   entityId: string,
   entityType: string,
-  payloadBefore: Record<string, unknown> | null,
-  payloadAfter: Record<string, unknown> | null,
+  payloadBefore: object | null,
+  payloadAfter: object | null,
   undoFn: () => Promise<void>,
 ) {
   const { data } = await supabase
