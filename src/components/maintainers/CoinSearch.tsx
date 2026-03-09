@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { searchCoins, getCoinMarketData } from '../../api/coingecko'
-import type { CoinGeckoListItem } from '../../types'
+import { useState } from 'react'
+import { getCoinMarketData } from '../../api/coingecko'
 import { Spinner } from '../common/Spinner'
 
 interface Props {
@@ -8,75 +7,69 @@ interface Props {
 }
 
 export function CoinSearch({ onSelect }: Props) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<CoinGeckoListItem[]>([])
+  const [inputId, setInputId] = useState('')
   const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  function handleInput(val: string) {
-    setQuery(val)
-    if (timer.current) clearTimeout(timer.current)
-    if (!val.trim()) { setResults([]); setOpen(false); return }
-    timer.current = setTimeout(async () => {
-      setLoading(true)
-      try {
-        const res = await searchCoins(val)
-        setResults(res.slice(0, 20))
-        setOpen(true)
-      } finally {
-        setLoading(false)
-      }
-    }, 400)
+  function handleChange(val: string) {
+    setInputId(val)
+    setError(null)
   }
 
-  async function pick(item: CoinGeckoListItem) {
-    setOpen(false)
-    setQuery(item.name)
+  async function handleFetch() {
+    const id = inputId.trim().toLowerCase()
+    if (!id) return
+    setError(null)
     setLoading(true)
     try {
-      const market = await getCoinMarketData([item.id])
-      const logo = market[0]?.image ?? null
-      onSelect({ name: item.name, symbol: item.symbol.toUpperCase(), coingecko_id: item.id, logo_url: logo })
+      const market = await getCoinMarketData([id])
+      if (market.length > 0) {
+        const coin = market[0]
+        onSelect({
+          name: coin.name,
+          symbol: coin.symbol.toUpperCase(),
+          coingecko_id: coin.id,
+          logo_url: coin.image ?? null,
+        })
+      } else {
+        setError(`ID '${id}' not found on CoinGecko`)
+      }
+    } catch {
+      setError('Error connecting to CoinGecko. Try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') handleFetch()
+  }
+
   return (
-    <div ref={ref} className="relative">
-      <div className="flex items-center gap-2 bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-md px-3 py-1.5">
-        <input
-          value={query}
-          onChange={e => handleInput(e.target.value)}
-          placeholder="Search coin (e.g. Bitcoin, ETH…)"
-          className="flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none"
-        />
-        {loading && <Spinner size="sm" />}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-md px-3 py-1.5">
+          <input
+            value={inputId}
+            onChange={e => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="CoinGecko ID (e.g. bitcoin, shiba-inu)"
+            className="flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none font-mono"
+          />
+          {loading && <Spinner size="sm" />}
+        </div>
+        <button
+          onClick={handleFetch}
+          disabled={loading || !inputId.trim()}
+          className="px-3 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+        >
+          Fetch
+        </button>
       </div>
-      {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-md shadow-xl max-h-60 overflow-y-auto">
-          {results.map(r => (
-            <li
-              key={r.id}
-              onClick={() => pick(r)}
-              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors"
-            >
-              <span className="text-[var(--color-text-muted)] w-12 shrink-0 text-xs uppercase">{r.symbol}</span>
-              <span className="text-[var(--color-text)]">{r.name}</span>
-              <span className="ml-auto text-[var(--color-text-muted)] text-xs">{r.id}</span>
-            </li>
-          ))}
-        </ul>
+      {error && (
+        <p className="text-xs text-red-400 flex items-center gap-1">
+          <span>✗</span> {error}
+        </p>
       )}
     </div>
   )

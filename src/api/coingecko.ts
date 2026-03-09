@@ -1,4 +1,4 @@
-import type { CoinGeckoListItem, CoinGeckoMarketData } from '../types'
+import type { CoinGeckoMarketData } from '../types'
 
 const BASE = 'https://api.coingecko.com/api/v3'
 
@@ -10,15 +10,6 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
   const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`CoinGecko error ${res.status}: ${path}`)
   return res.json() as Promise<T>
-}
-
-/** Search coins by query string (filters from full list) */
-export async function searchCoins(query: string): Promise<CoinGeckoListItem[]> {
-  const list = await get<CoinGeckoListItem[]>('/coins/list')
-  const q = query.toLowerCase()
-  return list
-    .filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q) || c.id.includes(q))
-    .slice(0, 50)
 }
 
 /** Get current price in USD for one or more coingecko IDs */
